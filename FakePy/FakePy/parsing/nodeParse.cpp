@@ -6,6 +6,7 @@
 #include "../exceptions/IndentException.h"
 #include "../types/Bool.h"
 #include "../types/Int.h"
+#include "../types/Dictionary.h"
 #include "../types/None.h"
 #include "../types/Double.h"
 #include "../types/List.h"
@@ -121,9 +122,18 @@ varType* nodeParser::parseStr(string str) {
 	}
 	
 	if (str.substr(0, 3) == "for") {
-
+		// variable for iteration
+		// list(range)
+		// code block
+		// continue, break
+		// varMap
 	}
-
+	if (str.substr(0, 5) == "while") {
+		// break condition
+		// continue, break
+		// code block
+		// varMap
+	}
 	/*
 		startConditionBlock
 		startIterativeBlock
@@ -566,11 +576,23 @@ varType* nodeParser::runCmd(exprNode* root, unordered_map<string, varType*>* v) 
 			return ret;
 		}
 		else if (line == "{}") {
-			ret = (varType*) new List();
+			ret = (varType*) new Dictionary();
 			for (auto child : root->getChds()) {
 				if (child == nullptr)
 					throw new syntaxException();
-				((List*)ret)->add(runCmd(child, v));
+				if (child->getVal() != ":") {
+					printf("Format error! Should be 'Key: Val'");
+					throw new syntaxException();
+				}
+				if (child->chdSz() != 2) {
+					printf("Missing key or missing value.");
+					throw new syntaxException();
+				}
+				exprNode* lchd = child->getChd(0);
+				exprNode* rchd = child->getChd(1);
+				varType* Key = runCmd(lchd, v);
+				varType* Val = runCmd(rchd, v);
+				((Dictionary*)ret)->add(make_pair(Key, Val));
 			}
 			return ret;
 		}
@@ -819,6 +841,7 @@ exprNode* nodeParser::buildTree(const string &str) {
 	throw new parameterException();
 }
 
+
 exprNode* nodeParser::buildClosedTree(string &str, const string &val) {
 	exprNode* root = new exprNode(val);
 	printf("closed str: %s\n", str.c_str());
@@ -984,98 +1007,7 @@ Function* nodeParser::assignFun(const string &str) {
 	return (Function*)(varMap[funName]);
 }
 
-varType* Function::runFun(vector<varType*> vars) {
-	if (vars.size() != localVars.size()) {
-		printf("Impatible parameters to run function!\n");
-		throw new parameterException();
-	}
 
-	for (int i = 0; i < vars.size(); i++)
-		localMap[localVars[i]] = vars[i];
-
-	nodeParser parser;
-	int ifIdx = 0;
-	for (exprNode* line : lines) {
-		try {
-			if (line == nullptr)
-				break;
-			if (line->getVal() == "return") {
-				exprNode* schd = line->getChd(0);
-				if (line->chdSz() != 1 || schd == nullptr)
-					break;
-				return parser.runCmd(schd, &localMap);
-			}
-			else if (line->getVal() == "if") {
-				//printf("If in fun\n");
-				ifBlock* ib = ifBlocks[ifIdx++];
-				varType* ret = ib->runIf(&localMap);
-				//printf("ret type: %d\n", ret->myType);
-				if (ret->myType != NonType) {
-					return ret;
-				}
-				else {
-					continue;
-				}
-			}
-			varType* ret = parser.runCmd(line, &localMap);
-			if (ret->isPrintable())
-				printf("%s\n", ret->toString());
-			if (ret->getTempVar())
-				delete ret;
-		}
-		catch (generalException* ex) {
-			string err = ex->what();
-			printf("Error: %s\n", err.c_str());
-		}
-	}
-
-	//parser.memFree(&localMap);
-	return (varType*) new Void();
-}
-
-bool Function::buildFun(string preIndent) {
-	string input;
-
-	printf("... ");
-	char ch;
-	while ((ch = getchar()) != '\n') {
-		input += ch;
-	}
-
-	nodeParser parser;
-
-	while (input != "") {
-		if (input[0] != ' ' && input[0] != '\t')
-			return false;
-		trim(input);
-		exprNode* line;
-		if (parser.checkReturn(input)) {
-			string cinput = parser.cleanStr(input.substr(7, input.size() - 7));
-			exprNode* sval = parser.buildTree(cinput);
-			line = new exprNode("return", sval);
-		} if (input.substr(0, 2) == "if") {
-			if (input[input.size() - 1] != ':') {
-				printf("If statement should end with ':' ");
-				throw new syntaxException();
-			}
-			ifBlock *ib = parser.assignIf(input.substr(2, input.size() - 3));
-			ifBlocks.push_back(ib);
-			line = new exprNode("if");
-		}
-		else {
-			line = parser.buildTree(parser.cleanStr(input));
-		}
-
-		lines.push_back(line);
-
-		input = "";
-		printf("... ");
-		while ((ch = getchar()) != '\n') {
-			input += ch;
-		}
-	}
-	return true;
-}
 
 ifBlock* nodeParser::assignIf(const string &cd) {
 	string condition = cd;
@@ -1090,140 +1022,5 @@ ifBlock* nodeParser::assignIf(const string &cd) {
 	return block;
 }
 
-varType* ifBlock::runIf(unordered_map<string, varType*> *v) {
-	if (v == nullptr)
-		v = &varMap;
 
-	localMap = *v;
-	//printf("local for a: %s\n", ((Int*) (*v)["a"])->toString().c_str());
-	nodeParser parser;
-	int index = 0, subIndex = 0;
-	for (auto condition : conditionLine) {
-		//printf("SIZE: %d\n", v->size());
-		varType* ret = parser.runCmd(condition, v);
-		if (ret->myType != Types::Boolean && ret->myType != Types::Integer) {
-			printf("The condition line does not return a boolean value.\n");
-			throw new parameterException();
-		}
-		bool verdict = ((Bool*)ret)->getVal();
-		//printf("verdict: %d\n", verdict);
-		if (verdict) {
-			for (auto line : lines[index]) {
-				printf("line %s\n", line->getVal().c_str());
-				try {
-					if (line == nullptr)
-						continue;
-					if (line->getVal() == "return") {
-						exprNode* schd = line->getChd(0);
-						if (line->chdSz() != 1 || schd == nullptr)
-							return (varType*)&Void();
-						return parser.runCmd(schd, &localMap);
-					}
-					else if (line->getVal() == "if") {
-						ifBlock* subB = subBlocks[index][subIndex++];
-						varType* ret = subB->runIf(v);
-						if (ret->myType != Types::Voids)
-							return ret;
-					}
-					varType* ret = parser.runCmd(line, &localMap);
-					if (ret->isPrintable())
-						printf("%s\n", ret->toString());
-					if (ret->getTempVar())
-						delete ret;
-				}
-				catch (generalException* ex) {
-					string err = ex->what();
-					printf("Error: %s\n", err.c_str());
-				}
-			}
-			return (varType*)&None();
-		}
-		index++;
-	}
-
-	parser.memFree(&localMap);
-	//printf("Run fin\n");
-	return (varType*) &None();
-}
-
-bool ifBlock::buildIf(string preIndent) {
-	string input;
-	string condition;
-	printf("... %s", preIndent.c_str());
-	char ch;
-	while ((ch = getchar()) != '\n') {
-		input += ch;
-	}
-
-	vector<exprNode*> l;
-	vector<ifBlock*>  subBlock;
-	int setLen = preIndent.size();
-
-	nodeParser parser;
-	while (input != "") {
-		//printf("input: %s\n", input.c_str());
-		if (input.substr(setLen, 4) == "elif") {
-			lines.push_back(l);
-			subBlocks.push_back(subBlock);
-			l.clear();
-			subBlock.clear();
-			
-			input = parser.cleanStr(input.substr(setLen + 4, input.size() - setLen - 4));
-			
-			//printf("elif input: %s\n", input.c_str());
-			if (input[input.size() - 1] != ':') {
-				printf("elif should end with :");
-				throw new syntaxException();
-			}
-			exprNode* conT;
-			conT = parser.buildTree(input.substr(0, input.size() - 1));
-			conditionLine.push_back(conT);
-		}
-		else if (input.substr(setLen, 4) == "else") {
-			lines.push_back(l);
-			subBlocks.push_back(subBlock);
-			l.clear();
-			subBlock.clear();
-
-			exprNode *conT = parser.buildTree("True");
-			conditionLine.push_back(conT);
-		}
-		else {
-			input = input.substr(setLen, input.size() - setLen);
-			if (input[0] != '\t' && input[0] != ' ')
-				return false;
-			trim(input);
-			exprNode* line;
-			//printf("input: %s\n", input.c_str());
-			if (parser.checkReturn(input)) {
-				string cinput = parser.cleanStr(input.substr(7, input.size() - 7));
-				exprNode* sval = parser.buildTree(cinput);
-				line = new exprNode("return", sval);
-			}
-			else if (input.substr(0, 2) == "if"){
-				string subCon = input.substr(2, input.size() - 2);
-				exprNode* conT = parser.buildTree(subCon);
-				ifBlock* subB = new ifBlock(conT);
-				try {
-					subB->buildIf(preIndent + '\t');
-				}
-				catch (generalException ex) {
-					return false;
-				}
-				line = new exprNode("if");
-			}
-			else {
-				line = parser.buildTree(parser.cleanStr(input));
-			}
-			l.push_back(line);
-		}	
-		input = "";
-		printf("... %s", preIndent.c_str());
-		while ((ch = getchar()) != '\n') {
-			input += ch;
-		}
-	}
-	lines.push_back(l);
-	subBlocks.push_back(subBlock);
-}
 

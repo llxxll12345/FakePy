@@ -1,18 +1,17 @@
 #include "stdafx.h"
 #include "testExt.h"
-#include "../external/dependencies.h"
 #include <unordered_map>
 unordered_map<string, int> idMap;
 void testExt() {
 	string inputName = "input.txt";
-	FILE *f;
-	fopen(inputName.c_str(), "r");
-	char* line;
+	FILE *f = fopen(inputName.c_str(), "r");
+	char* line = new char();
 	fileGraph g(0);
 	int vNum = 0;
 	while (fscanf(f, "%s", line) != EOF) {
 		g.V++;
-		char *from, *to;
+		char *from = new char();
+		char *to   = new char();
 		sscanf(line, "%s->%s", from, to);
 		string s1(from), s2(to);
 		if (!idMap.count(from)) {

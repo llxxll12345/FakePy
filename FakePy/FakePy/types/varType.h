@@ -15,6 +15,7 @@ enum Types {
 	Functions,
 	Operand,
 	BigNum,
+	Dicts,
 	NonType
 };
 
