@@ -10,6 +10,7 @@
 #include <sstream>
 #include "../types/Function.h"
 #include "condition.h"
+#include "iteration.h"
 #include "String.h"
 #include "../types/Void.h"
 #include <vector>
@@ -62,6 +63,9 @@ public:
 	void assignIter(const string &iters, varType* iterList, unordered_map<string, varType*>* vaarMap = nullptr);
 	ifBlock* assignIf(const string &condition);
 	
+	forBlock* assignFor(const string &iterName, const string &Lists);
+	whileBlock* assignWhile(const string &condition);
+
 	Void* getVoid();
 };
 

@@ -82,7 +82,11 @@ varType* nodeParser::parseStr(string str) {
 
 	if (checkFunDeclare(str)) {
 		printf("deal with function\n");
-		string funcName = cleanStr(str.substr(4, str.size() - 4));
+		if (str[str.size() - 1] != ':') {
+			printf("If statement should end with ':' !\n");
+			throw new syntaxException();
+		}
+		string funcName = cleanStr(str.substr(4, str.size() - 5));
 		printf("Func def: %s\n", funcName.c_str());
 		Function* newFunc = NULL;
 		try { newFunc = assignFun(funcName); }
@@ -122,17 +126,41 @@ varType* nodeParser::parseStr(string str) {
 	}
 	
 	if (str.substr(0, 3) == "for") {
-		// variable for iteration
-		// list(range)
-		// code block
-		// continue, break
-		// varMap
+		if (str[str.size() - 1] != ':') {
+			printf("If statement should end with ':' !\n");
+			throw new syntaxException();
+		}
+		int id = str.find_first_of("in");
+		string vName = str.substr(3, id - 3);
+		string lists = str.substr(id + 2, str.size() - id - 2);
+		forBlock* block = assignFor(vName, lists);
+		varType* ret = block->runFor(&varMap);
+		if (ret->myType != NonType) {
+			printf("No return statement should appear outside a function.");
+			throw new parameterException();
+		}
+
+		ret = (varType*) new Void();
+		ret->setTempVar(1);
+		return ret;
 	}
 	if (str.substr(0, 5) == "while") {
-		// break condition
-		// continue, break
-		// code block
-		// varMap
+		string condition = cleanStr(str.substr(2, str.size() - 2));
+		printf("while statement\n");
+		if (condition[condition.size() - 1] != ':') {
+			printf("While statement should end with ':' !\n");
+			throw new syntaxException();
+		}
+		ifBlock* block = assignIf(condition.substr(0, condition.size() - 1));
+		varType* ret = block->runIf(&varMap);
+		if (ret->myType != NonType) {
+			printf("No return statement should appear outside a function.");
+			throw new parameterException();
+		}
+
+		ret = (varType*) new Void();
+		ret->setTempVar(1);
+		return ret;
 	}
 	/*
 		startConditionBlock
@@ -948,8 +976,8 @@ void nodeParser::assignVar(const string& varName, varType* asgn, unordered_map<s
 Function* nodeParser::assignFun(const string &str) {
 	exprNode* root = buildTree(str);
 	root->printT();
-	if (!root || root->getVal() != ":") {
-		printf("Missing ':' \n");
+	if (!root) {
+		printf("Empty root");
 		throw new syntaxException();
 	}
 
@@ -1022,5 +1050,31 @@ ifBlock* nodeParser::assignIf(const string &cd) {
 	return block;
 }
 
+forBlock* nodeParser::assignFor(const string &iterName, const string &Lists) {
+	string i = iterName, l = Lists;
+	trim(i);
+	cleanStr(i);
+	String* iName = new String(iterName);
+	trim(l);
+	cleanStr(l);
+	exprNode* iList = buildTree(Lists);
+	forBlock *f = new forBlock(iName, iList);
+	if (!f->buildFor("")) {
+		printf("Build for error.\n");
+		throw new syntaxException();
+	}
+	return f;
+}
 
-
+whileBlock* nodeParser::assignWhile(const string &cd) {
+	string condition = cd;
+	trim(condition);
+	cleanStr(condition);
+	exprNode* conT = buildTree(condition);
+	whileBlock *block = new whileBlock(conT);
+	if (!block->buildWhile("")) {
+		printf("Build if block error.\n");
+		throw new syntaxException();
+	}
+	return block;
+}
