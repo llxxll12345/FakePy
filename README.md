@@ -16,7 +16,7 @@ Currently, FakePy has the following features and problems:
 But no one knows when I'll finish my plan. :)
  
 # FakePy 1.0.1(Beta)
-** Under construction **
+**Under construction**
 ### Update info
 
 - Iterative loops added ```if and while```
@@ -25,5 +25,5 @@ But no one knows when I'll finish my plan. :)
 - File import prototype added
 - Class prototype added
 
-**MemFree problems still exits**
+**MemFree problems still exists**
 
